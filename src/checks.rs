@@ -200,6 +200,10 @@ impl<'a> SiteCtx<'a> {
             if !missing.is_empty() {
                 out.push(Finding::new(Check::PageIncomplete, path, format!("{}: missing {}", t.name, missing.join(", ")), false));
             }
+            let absent: Vec<&str> = t.require_text.iter().filter(|r| !body_text.contains(r.as_str())).map(String::as_str).collect();
+            if !absent.is_empty() {
+                out.push(Finding::new(Check::PageIncomplete, path, format!("{}: text missing {}", t.name, absent.join(", ")), false));
+            }
             for f in &t.forbid_text {
                 if body_text.contains(f.as_str()) {
                     out.push(Finding::new(Check::PageIncomplete, path, format!("{}: contains {f:?}", t.name), false));

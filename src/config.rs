@@ -167,6 +167,9 @@ pub struct RawPageType {
     pub pattern: String,
     #[serde(default)]
     pub require: Vec<String>,
+    /// Visible text that must appear, e.g. a section heading ("Zutaten").
+    #[serde(default)]
+    pub require_text: Vec<String>,
     #[serde(default)]
     pub forbid_text: Vec<String>,
     pub min_text: Option<usize>,
@@ -196,6 +199,7 @@ pub struct PageType {
     pub pattern: Regex,
     /// Original selector text next to the compiled selector, for messages.
     pub require: Vec<(String, Selector)>,
+    pub require_text: Vec<String>,
     pub forbid_text: Vec<String>,
     pub min_text: Option<usize>,
 }
@@ -258,6 +262,7 @@ fn compile_site(raw: &RawSite) -> Result<Site> {
                 .map(|s| Ok((s.clone(), selector(s)?)))
                 .collect::<Result<_>>()
                 .with_context(|| format!("page type {:?}", t.name))?,
+            require_text: t.require_text.clone(),
             forbid_text: t.forbid_text.clone(),
             min_text: t.min_text,
         });

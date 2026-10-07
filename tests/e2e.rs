@@ -32,6 +32,10 @@ fn serve(fixed: Arc<AtomicBool>) -> u16 {
                 "/build/assets/site-B.js" => (200, "application/javascript", "1".into()),
                 "/sitemap.xml" => (200, "application/xml", format!("<urlset><url><loc>http://127.0.0.1:{port}/a</loc></url></urlset>")),
                 "/rezepte" | "/a" => (200, "text/html; charset=utf-8", page("site-NEW.css", NAV)),
+                "/broken" => (200, "text/html", "<!doctype html><html><head><title>t</title></head><body><header><nav id=\"desktop-nav\">x</nav></header><main><h1>{{ title }}</h1></main></body></html>".into()),
+                "/rezepte/kaputt" => (200, "text/html", page("site-NEW.css", NAV).replace("<p>text</p>", "<h2>Zutaten</h2>")),
+                "/stale-nav" => (200, "text/html", page("site-NEW.css", r#"<a href="/rezepte">Rezepte</a><a href="/alt">Alt</a>"#)),
+                "/cut" => (200, "text/html", page("site-NEW.css", NAV)[..200].to_string()),
                 "/" if fixed.load(Ordering::SeqCst) => (200, "text/html; charset=utf-8", page("site-NEW.css", NAV)),
                 "/" => (200, "text/html; charset=utf-8", page("site-OLD.css", NAV)),
                 _ => (404, "text/html", "not found".into()),
@@ -91,4 +95,45 @@ forbid_text = ["{{{{"]
     assert!(state.issues.is_empty());
     let msgs = sitewatch::notify::messages(&cfg, &out, &mut state);
     assert!(msgs.iter().all(|m| m.event == "sitewatch.resolved") && msgs.len() == 2);
+}
+
+#[test]
+fn incomplete_pages_and_old_menu() {
+    let port = serve(Arc::new(AtomicBool::new(false)));
+    let cfg = Config::parse(&format!(
+        r##"
+[notify]
+enabled = false
+[[sites]]
+name = "test"
+base_url = "http://127.0.0.1:{port}"
+fresh_reference = "/rezepte?sitewatch={{nonce}}"
+layout_fingerprint = ["#desktop-nav a"]
+quick_pages = ["/broken", "/rezepte/kaputt", "/stale-nav", "/cut"]
+quick_rate = 1000.0
+[[sites.page_types]]
+name = "any"
+match = ".*"
+require = ["header", "main", "footer"]
+forbid_text = ["{{{{"]
+[[sites.page_types]]
+name = "recipe"
+match = "^/rezepte/[^/?]+$"
+require_text = ["Zutaten", "Zubereitung"]
+"##
+    ))
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let opts = Options { mode: Mode::Quick, state_dir: dir.path().into(), dry_run: false };
+    let mut state = State::default();
+    run::run(&cfg, &opts, &mut state).unwrap();
+    let get = |c: Check| state.issues.get(&format!("test/{}", c.id())).cloned();
+    let inc = get(Check::PageIncomplete).expect("page.incomplete");
+    assert_eq!(inc.count, 3, "{:?}", inc.examples);
+    assert!(inc.examples.iter().any(|e| e.contains("missing footer")));
+    assert!(inc.examples.iter().any(|e| e.contains("{{")));
+    assert!(inc.examples.iter().any(|e| e.contains("text missing Zubereitung")));
+    let nav = get(Check::StaleLayout).expect("cache.stale_layout");
+    assert_eq!(nav.paths, ["/stale-nav"]);
+    assert!(nav.examples[0].contains("missing in cache: /magazin; removed since: /alt"), "{:?}", nav.examples);
 }
