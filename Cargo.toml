@@ -1,0 +1,29 @@
+[package]
+name = "sitewatch"
+version = "0.1.0"
+edition = "2024"
+description = "Website watchdog: sees a site as a first-time visitor does and reports stale cached pages, missing assets and incomplete renders on state change."
+publish = false
+
+[dependencies]
+anyhow = "1.0.104"
+chrono = { version = "0.4.45", features = ["serde"] }
+clap = { version = "4.6.7", features = ["derive"] }
+fastrand = "2.5.0"
+opskit = { path = "../opskit" }
+regex = "1.13.1"
+scraper = "0.27.0"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+toml = "1.1.6"
+ureq = "=3.4.2"
+url = "2.5.8"
+
+[dev-dependencies]
+tempfile = "3.27.0"
+tiny_http = "0.12"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
