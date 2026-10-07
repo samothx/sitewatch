@@ -1,0 +1,12 @@
+# Clears and re-warms the static cache of site %i as the site owner. User=, WorkingDirectory= and
+# the commands come from sitewatch-heal@%i.service.d/10-host.conf and /etc/sitewatch/heal/%i.env,
+# written by install.sh --heal-site.
+[Unit]
+Description=sitewatch: clear the static cache of %i
+ConditionPathExists=/etc/sitewatch/heal/%i.env
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/sitewatch/heal/%i.env
+ExecStart=/usr/local/share/sitewatch/heal.sh %i
+TimeoutStartSec=5min

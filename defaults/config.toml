@@ -1,0 +1,50 @@
+# sitewatch: /etc/sitewatch/config.toml. Every option with its default; `sitewatch config check`
+# validates the file, `sitewatch check <url>` runs all checks against one page.
+# A real host config lives in your ops repo and is installed with install.sh --config.
+
+[general]
+state_dir = "/var/lib/sitewatch"   # state.json, reports/, sitemap cache, heal/
+timeout_secs = 20                  # per request
+slow_ms = 3000                     # slower pages → site.slow (low)
+
+[notify]                           # via ntfy-dispatcher, events sitewatch.*
+enabled = true
+command = "/usr/local/bin/ntfy-dispatcher"
+min_severity = "medium"            # push new/escalated issues at or above this
+digest = true                      # summary after every full run
+
+[mail]                             # Markdown report via sendmail (msmtp)
+enabled = false
+to = ["@@EMAIL_TO@@"]              # install.sh fills both from /etc/logscan/config.toml [email]
+from = "@@EMAIL_FROM@@"
+sendmail = "/usr/sbin/sendmail"
+min_severity = "medium"            # mail on new issues ≥ this, and after full runs with open ones
+html = true
+
+[heal]                             # cache clear when every open issue is a stale cache reference
+enabled = false                    # needs install.sh --heal-site/--heal-dir/--heal-user
+cooldown_hours = 6
+
+[[sites]]
+name = "example"                   # [a-z0-9-], used in issue keys and heal unit names
+base_url = "https://www.example.org"
+# manifest = "/build/manifest.json"            # Vite manifest → cache.stale_build
+# sitemap = "/sitemap.xml"                     # quick: random sample, full: every URL
+# fresh_reference = "/list?sitewatch={nonce}"  # a URL that bypasses the static cache
+# layout_fingerprint = ["nav a"]               # compared with the fresh reference → cache.stale_layout
+quick_pages = ["/"]                # checked every quick run (+ size baseline → page.shrunk)
+quick_sample = 10                  # random sitemap URLs per quick run
+quick_rate = 2.0                   # requests per second
+full_rate = 4.0
+image_check = "quick"              # none | quick | all (at most 8 images per page)
+shrink_ratio = 0.6                 # page.shrunk below this share of the usual size
+# connect_to = "127.0.0.1"         # connect here instead of resolving the host (SNI unchanged)
+
+# Every page type whose `match` (regex on path + query) matches applies.
+[[sites.page_types]]
+name = "any"
+match = ".*"
+require = ["header", "main", "footer", "title"]   # CSS selectors
+# require_text = ["…"]                            # visible text that must appear
+forbid_text = ["{{", "Whoops", "Server Error"]    # visible text that must not
+# min_text = 100                                  # visible characters in <main>

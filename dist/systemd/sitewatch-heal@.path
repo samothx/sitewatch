@@ -1,0 +1,11 @@
+# sitewatch (user sitewatch, no docker access) writes /var/lib/sitewatch/heal/<site>.request when
+# every open issue of a site is a stale cache reference ([heal] enabled in config.toml).
+[Unit]
+Description=sitewatch: cache clear request for %i
+
+[Path]
+PathExists=/var/lib/sitewatch/heal/%i.request
+Unit=sitewatch-heal@%i.service
+
+[Install]
+WantedBy=paths.target

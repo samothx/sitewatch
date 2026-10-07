@@ -1,0 +1,42 @@
+
+# --- sitewatch (appended by sitewatch install.sh) ----------------------------------------------
+# sitewatch passes --priority on alerts itself (critical → 5, high → 4, medium → 3).
+[[rules]]
+id = "sitewatch_alert"
+match_event = "sitewatch.alert"
+topic = "alert_@@INFIX@@services"
+priority = 4
+tags = ["globe_with_meridians", "warning"]
+title_prefix = "[SITE]"
+
+[[rules]]
+id = "sitewatch_resolved"
+match_event = "sitewatch.resolved"
+topic = "notify_@@INFIX@@tasks"
+priority = 2
+tags = ["globe_with_meridians", "white_check_mark"]
+title_prefix = "[SITE]"
+
+[[rules]]
+id = "sitewatch_heal"
+match_event = "sitewatch.heal"
+topic = "notify_@@INFIX@@tasks"
+priority = 3
+tags = ["globe_with_meridians", "broom"]
+title_prefix = "[SITE]"
+
+[[rules]]
+id = "sitewatch_digest"
+match_event = "sitewatch.digest"
+topic = "notify_@@INFIX@@digest"
+priority = 2
+tags = ["globe_with_meridians", "memo"]
+title_prefix = "[SITEWATCH]"
+
+[[rules]]
+id = "sitewatch_error"
+match_event = "sitewatch.error"
+topic = "alert_@@INFIX@@services"
+priority = 3
+tags = ["globe_with_meridians", "warning"]
+title_prefix = "[SITEWATCH]"

@@ -1,0 +1,11 @@
+[Unit]
+Description=sitewatch: nightly full website check
+
+[Timer]
+# After km_stat's nightly static cache clear (04:00) + warm-up (04:01, 10+ min).
+OnCalendar=*-*-* 05:00 Europe/Berlin
+RandomizedDelaySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

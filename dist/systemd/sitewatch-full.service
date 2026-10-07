@@ -1,0 +1,38 @@
+# sitewatch full run (nightly: every sitemap URL). Unprivileged system user; only network + its
+# state dir. Quick and full share a lock so state.json has one writer. Host bits (OnFailure=,
+# groups) in sitewatch-full.service.d/10-host.conf, written by install.sh.
+[Unit]
+Description=sitewatch: full website check
+Documentation=file:///usr/local/share/doc/sitewatch/README.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/flock -w 3600 /var/lib/sitewatch/run.lock /usr/local/bin/sitewatch --config /etc/sitewatch/config.toml run --mode full
+User=sitewatch
+Group=sitewatch
+UMask=0027
+TimeoutStartSec=3h
+Nice=10
+MemoryMax=512M
+
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadWritePaths=/var/lib/sitewatch -/var/spool/ntfy-dispatcher
