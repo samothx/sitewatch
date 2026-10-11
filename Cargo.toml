@@ -10,7 +10,7 @@ anyhow = "1.0.104"
 chrono = { version = "0.4.45", features = ["serde"] }
 clap = { version = "4.6.7", features = ["derive"] }
 fastrand = "2.5.0"
-opskit = { path = "../opskit" }
+opskit = { git = "https://github.com/samothx/opskit", tag = "v0.1.0" }
 regex = "1.13.1"
 scraper = "0.27.0"
 serde = { version = "1.0.229", features = ["derive"] }
