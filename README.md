@@ -87,3 +87,7 @@ sudo systemctl enable --now sitewatch-quick.timer sitewatch-full.timer
 Requests carry `User-Agent: sitewatch/<version>`. With `connect_to = "127.0.0.1"` the host's own
 nginx is reached over loopback (same vhost and cache as visitors, no hairpin NAT, and CrowdSec's
 default whitelist covers 127.0.0.1, so the nightly 7,500-page sweep can't get the host banned).
+
+## License
+
+MIT, see [LICENSE](LICENSE).
