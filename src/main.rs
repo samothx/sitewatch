@@ -129,6 +129,16 @@ fn do_run(cfg: &Config, opts: &Options, print: bool) -> Result<()> {
     if !errors.is_empty() {
         bail!("{}", errors.join("; "));
     }
+    // Last, so only a clean run pings. A failed ping only logs: the missing ping alerts anyway.
+    if cfg.heartbeat.enabled {
+        match notify::heartbeat_blocker(cfg, &state) {
+            Some(i) => println!("heartbeat skipped: {} {} open ({})", i.severity, i.check.id(), i.site),
+            None => match notify::heartbeat(cfg) {
+                Ok(()) => println!("heartbeat sent"),
+                Err(e) => eprintln!("heartbeat failed: {e:#}"),
+            },
+        }
+    }
     Ok(())
 }
 

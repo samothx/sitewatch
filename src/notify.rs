@@ -1,7 +1,10 @@
 //! Pushes through `ntfy-dispatcher` (events `sitewatch.alert|resolved|heal|digest|error`, mapped
-//! to topics by `dist/dispatcher-rules.toml`) and mails the report through opskit's Mailer.
+//! to topics by `dist/dispatcher-rules.toml`), mails the report through opskit's Mailer and pings
+//! the heartbeat URL when all is well.
 
-use anyhow::Result;
+use std::time::Duration;
+
+use anyhow::{Result, anyhow};
 use opskit::Severity;
 use opskit::mail::Mailer;
 use opskit::notify::{Message, emit};
@@ -114,4 +117,58 @@ pub fn mail(cfg: &Config, out: &Outcome, state: &State, report: &str) -> Result<
     let sites: Vec<&str> = out.sites.iter().map(|s| s.site.as_str()).collect();
     let intro = format!("sitewatch on {} checked {}.", opskit::hostname(), sites.join(", "));
     m.send(&m.build_message(&subject, &intro, report))
+}
+
+/// The worst open issue above `heartbeat.max_severity`, if any (then no ping).
+pub fn heartbeat_blocker<'a>(cfg: &Config, state: &'a State) -> Option<&'a Issue> {
+    state.issues.values().filter(|i| i.severity > cfg.heartbeat.max_severity).max_by_key(|i| i.severity)
+}
+
+/// GET the heartbeat URL. Errors never contain the URL (it carries the account key).
+pub fn heartbeat(cfg: &Config) -> Result<()> {
+    let url = opskit::secret::read("SITEWATCH_HEARTBEAT_URL", &cfg.heartbeat.url_file)?;
+    let agent: ureq::Agent = ureq::Agent::config_builder()
+        .timeout_global(Some(Duration::from_secs(15)))
+        .user_agent(concat!("sitewatch/", env!("CARGO_PKG_VERSION")))
+        .build()
+        .into();
+    match agent.get(&url).call() {
+        Ok(_) => Ok(()),
+        Err(ureq::Error::StatusCode(c)) => Err(anyhow!("HTTP {c}")),
+        Err(e) => Err(anyhow!("{}", e.to_string().replace(&url, "<heartbeat url>"))),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::checks::Check;
+    use chrono::Utc;
+
+    fn issue(check: Check, severity: Severity) -> Issue {
+        Issue {
+            site: "a".into(),
+            check,
+            severity,
+            first_seen: Utc::now(),
+            last_seen: Utc::now(),
+            notified: false,
+            count: 1,
+            checked: 1,
+            paths: vec![],
+            examples: vec![],
+            healable: false,
+        }
+    }
+
+    #[test]
+    fn heartbeat_only_blocked_above_max_severity() {
+        let cfg = Config::parse("[heartbeat]\nenabled = true\n[[sites]]\nname='a'\nbase_url='https://x.test'\n").unwrap();
+        let mut state = State::default();
+        assert!(heartbeat_blocker(&cfg, &state).is_none());
+        state.issues.insert("a/site.slow".into(), issue(Check::SiteSlow, Severity::Low));
+        assert!(heartbeat_blocker(&cfg, &state).is_none(), "low is below the default max");
+        state.issues.insert("a/page.status".into(), issue(Check::PageStatus, Severity::High));
+        assert_eq!(heartbeat_blocker(&cfg, &state).map(|i| i.check), Some(Check::PageStatus));
+    }
 }

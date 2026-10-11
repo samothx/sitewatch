@@ -21,6 +21,8 @@ pub struct Config {
     pub mail: Mail,
     #[serde(default)]
     pub heal: Heal,
+    #[serde(default)]
+    pub heartbeat: Heartbeat,
     #[serde(rename = "sites")]
     pub raw_sites: Vec<RawSite>,
     #[serde(skip)]
@@ -102,6 +104,25 @@ pub struct Heal {
 impl Default for Heal {
     fn default() -> Self {
         Self { enabled: false, cooldown_hours: 6 }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields, default)]
+pub struct Heartbeat {
+    /// Dead man's switch (Cronitor, healthchecks.io, …): GET the URL in `url_file` after a run
+    /// that finished without errors and left no open issue above `max_severity`. No ping → the
+    /// service alerts, which also covers failed or missing runs.
+    pub enabled: bool,
+    /// Holds the URL (it carries the account key): 0640 root:sitewatch. $SITEWATCH_HEARTBEAT_URL
+    /// overrides; a relative name is looked up in $CREDENTIALS_DIRECTORY first.
+    pub url_file: PathBuf,
+    pub max_severity: Severity,
+}
+
+impl Default for Heartbeat {
+    fn default() -> Self {
+        Self { enabled: false, url_file: "/etc/sitewatch/heartbeat-url".into(), max_severity: Severity::Low }
     }
 }
 

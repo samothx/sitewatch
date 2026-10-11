@@ -152,19 +152,25 @@ fn select_paths(site: &Site, opts: &Options, state: &State, ctx: &SiteCtx, findi
     for p in &site.quick_pages {
         add(p.clone(), &mut paths);
     }
+    let urls = site.sitemap.as_ref().map(|sitemap| {
+        sitemap_paths(site, sitemap, opts, ctx).map_err(|e| {
+            findings.push(Finding { check: Check::PageStatus, path: sitemap.clone(), detail: format!("sitemap: {e:#}"), healable: false });
+        })
+    });
+    // Recheck open issues, except paths the sitemap no longer lists (unpublished or moved entries):
+    // those are dropped, so the issue can resolve. Without a usable sitemap every path is rechecked.
+    let listed: Option<HashSet<&str>> = match &urls {
+        Some(Ok(u)) => Some(u.iter().map(String::as_str).collect()),
+        _ => None,
+    };
     for issue in state.issues.values().filter(|i| i.site == site.name && i.check != Check::SiteDown) {
         for p in issue.paths.iter().take(RECHECK_PER_ISSUE) {
-            add(p.clone(), &mut paths);
+            if listed.as_ref().is_none_or(|l| l.contains(p.as_str())) || site.quick_pages.contains(p) {
+                add(p.clone(), &mut paths);
+            }
         }
     }
-    let Some(sitemap) = &site.sitemap else { return paths };
-    let urls = match sitemap_paths(site, sitemap, opts, ctx) {
-        Ok(u) => u,
-        Err(e) => {
-            findings.push(Finding { check: Check::PageStatus, path: sitemap.clone(), detail: format!("sitemap: {e:#}"), healable: false });
-            return paths;
-        }
-    };
+    let Some(Ok(urls)) = urls else { return paths };
     match opts.mode {
         Mode::Full => urls.into_iter().for_each(|p| add(p, &mut paths)),
         Mode::Quick => {

@@ -1,6 +1,6 @@
 [package]
 name = "sitewatch"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "Website watchdog: sees a site as a first-time visitor does and reports stale cached pages, missing assets and incomplete renders on state change."
 publish = false

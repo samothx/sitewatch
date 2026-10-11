@@ -9,7 +9,10 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/flock -w 3600 /var/lib/sitewatch/run.lock /usr/local/bin/sitewatch --config /etc/sitewatch/config.toml run --mode quick
+# A quick run that finds the lock taken (the nightly full run) is skipped, not queued: waiting
+# would outlast TimeoutStartSec and report a failure. 75 = EX_TEMPFAIL from flock, counted as success.
+ExecStart=/usr/bin/flock -n -E 75 /var/lib/sitewatch/run.lock /usr/local/bin/sitewatch --config /etc/sitewatch/config.toml run --mode quick
+SuccessExitStatus=75
 User=sitewatch
 Group=sitewatch
 UMask=0027

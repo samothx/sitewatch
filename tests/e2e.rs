@@ -137,3 +137,49 @@ require_text = ["Zutaten", "Zubereitung"]
     assert_eq!(nav.paths, ["/stale-nav"]);
     assert!(nav.examples[0].contains("missing in cache: /magazin; removed since: /alt"), "{:?}", nav.examples);
 }
+
+/// 2026-10-11: entries unpublished or moved after they had answered 404/301 stayed an open issue
+/// forever, because open issues recheck their paths every run. Once the sitemap no longer lists a
+/// path, it is not rechecked and the issue resolves.
+#[test]
+fn path_dropped_from_sitemap_resolves() {
+    let listed = Arc::new(AtomicBool::new(true));
+    let server = Server::http("127.0.0.1:0").unwrap();
+    let port = server.server_addr().to_ip().unwrap().port();
+    let l = listed.clone();
+    std::thread::spawn(move || {
+        for req in server.incoming_requests() {
+            let (status, ctype, body) = match req.url() {
+                "/sitemap.xml" => {
+                    let gone = if l.load(Ordering::SeqCst) { format!("<url><loc>http://127.0.0.1:{port}/gone</loc></url>") } else { String::new() };
+                    (200, "application/xml", format!("<urlset><url><loc>http://127.0.0.1:{port}/</loc></url>{gone}</urlset>"))
+                }
+                "/" => (200, "text/html; charset=utf-8", page("site-NEW.css", NAV)),
+                p if p.ends_with(".css") => (200, "text/css", "body{}".into()),
+                p if p.ends_with(".js") => (200, "application/javascript", "1".into()),
+                _ => (404, "text/html", "not found".into()),
+            };
+            let ct = Header::from_bytes("Content-Type", ctype).unwrap();
+            let _ = req.respond(Response::from_string(body).with_status_code(status).with_header(ct));
+        }
+    });
+    let cfg = Config::parse(&format!(
+        "[notify]\nenabled = false\n[[sites]]\nname = \"test\"\nbase_url = \"http://127.0.0.1:{port}\"\nsitemap = \"/sitemap.xml\"\nquick_pages = [\"/\"]\nquick_rate = 1000.0\nfull_rate = 1000.0\nimage_check = \"none\"\n"
+    ))
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let full = Options { mode: Mode::Full, state_dir: dir.path().into(), dry_run: false };
+    let quick = Options { mode: Mode::Quick, state_dir: dir.path().into(), dry_run: false };
+    let mut state = State::default();
+
+    run::run(&cfg, &full, &mut state).unwrap();
+    assert_eq!(state.issues.get("test/page.status").map(|i| i.paths.clone()), Some(vec!["/gone".to_string()]));
+    run::run(&cfg, &quick, &mut state).unwrap();
+    assert!(state.issues.contains_key("test/page.status"), "still listed: stays open");
+
+    listed.store(false, Ordering::SeqCst);
+    let out = run::run(&cfg, &full, &mut state).unwrap();
+    assert!(out.events.iter().any(|e| matches!(e, Event::Resolved(i) if i.check == Check::PageStatus)), "{:?}", out.events);
+    run::run(&cfg, &quick, &mut state).unwrap();
+    assert!(state.issues.is_empty(), "{:?}", state.issues.values().map(|i| &i.examples).collect::<Vec<_>>());
+}

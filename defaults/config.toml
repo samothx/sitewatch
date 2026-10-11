@@ -25,6 +25,11 @@ html = true
 enabled = false                    # needs install.sh --heal-site/--heal-dir/--heal-user
 cooldown_hours = 6
 
+[heartbeat]                        # dead man's switch, e.g. Cronitor: no ping → it alerts
+enabled = false
+url_file = "/etc/sitewatch/heartbeat-url"   # the ping URL (carries the account key), 0640 root:sitewatch
+max_severity = "low"               # ping after a clean run with no open issue above this
+
 [[sites]]
 name = "example"                   # [a-z0-9-], used in issue keys and heal unit names
 base_url = "https://www.example.org"

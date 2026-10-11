@@ -48,6 +48,22 @@ site owner (`--heal-user`, in the docker group; sitewatch itself is not): `stata
 then the warm-up in the background. 15 minutes later, a still-stale site raises
 "cache clear did not help".
 
+## Heartbeat
+
+Optional dead man's switch (`[heartbeat] enabled = true`), e.g. a Cronitor heartbeat monitor.
+After a run (quick or full) that finished without errors and leaves no open issue above
+`max_severity` (default `low`), sitewatch GETs the URL in `url_file`. A failed or missing run, or a
+serious open issue, means no ping, and the monitor alerts after its grace period. The URL carries
+the account key, so it lives in its own file and never in the config or log output:
+
+```bash
+printf '%s\n' 'https://cronitor.link/p/<key>/<monitor>' |
+  sudo install -m 0640 -o root -g sitewatch /dev/stdin /etc/sitewatch/heartbeat-url
+```
+
+Expected interval: every 15 min, except around the nightly full run (it holds the lock while
+it walks the whole sitemap). Set the grace period to cover that run.
+
 ## Usage
 
 ```bash
